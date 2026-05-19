@@ -1,0 +1,32 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute.jsx'
+import { OnboardingCompletedGate, OnboardingInProgressGate } from './components/ProfileGate.jsx'
+import SignIn from './pages/SignIn.jsx'
+import Home from './pages/Home.jsx'
+import AuthCallback from './pages/AuthCallback.jsx'
+import OnboardingIndex from './pages/onboarding/index.jsx'
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+
+      <Route element={<PublicRoute />}>
+        <Route path="/signin" element={<SignIn />} />
+      </Route>
+
+      <Route element={<ProtectedRoute />}>
+        {/* /home — only accessible once profile is complete */}
+        <Route element={<OnboardingCompletedGate />}>
+          <Route path="/home" element={<Home />} />
+        </Route>
+
+        {/* /onboarding — only accessible while profile is incomplete */}
+        <Route element={<OnboardingInProgressGate />}>
+          <Route path="/onboarding" element={<OnboardingIndex />} />
+        </Route>
+      </Route>
+    </Routes>
+  )
+}
