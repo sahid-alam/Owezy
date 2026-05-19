@@ -19,5 +19,6 @@ Thumbs.db
 # editor
 *.local
 
-# Claude Code MCP config — developer-specific, not project code
+# Claude Code — machine-specific configs, not project code
 .mcp.json
+.claude/settings.local.json
