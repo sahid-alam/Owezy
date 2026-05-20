@@ -5,6 +5,8 @@ import SignIn from './pages/SignIn.jsx'
 import Home from './pages/Home.jsx'
 import AuthCallback from './pages/AuthCallback.jsx'
 import OnboardingIndex from './pages/onboarding/index.jsx'
+import FriendsIndex from './pages/friends/index.jsx'
+import FriendDetail from './pages/friends/FriendDetail.jsx'
 
 export default function App() {
   return (
@@ -17,12 +19,12 @@ export default function App() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
-        {/* /home — only accessible once profile is complete */}
         <Route element={<OnboardingCompletedGate />}>
           <Route path="/home" element={<Home />} />
+          <Route path="/friends" element={<FriendsIndex />} />
+          <Route path="/friends/:friendId" element={<FriendDetail />} />
         </Route>
 
-        {/* /onboarding — only accessible while profile is incomplete */}
         <Route element={<OnboardingInProgressGate />}>
           <Route path="/onboarding" element={<OnboardingIndex />} />
         </Route>

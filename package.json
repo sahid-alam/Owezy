@@ -6,10 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "push": "git push -u origin $(git branch --show-current)",
-    "pr": "gh pr create --web",
-    "sync": "git fetch origin && git rebase origin/main"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -19,6 +16,7 @@
     "react": "^19",
     "react-dom": "^19",
     "react-hook-form": "^7",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7",
     "zod": "^3",
     "zustand": "^5"

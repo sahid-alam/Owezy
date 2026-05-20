@@ -8,7 +8,7 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 
 **UPI-native friend debt tracker.** Splitwise reimagined for India: UPI deep links, WhatsApp reminders, Claude-powered bill splitting from receipt photos + natural-language description.
 
-**Status:** Auth (Pass 1) and onboarding wizard (Pass 2) complete. Next: friends feature.
+**Status:** Auth (Pass 1), onboarding wizard (Pass 2), and friends graph (Pass 3) complete. Next: groups.
 
 **Target users:** college students, flatmates, trip groups, office friends. INR only.
 
@@ -311,44 +311,6 @@ npx supabase functions deploy <name>  # deploy edge function
 **Dev-only Supabase settings (Dashboard → Auth → Providers → Email):**
 - "Enable email confirmations" → OFF for local dev so email signup auto-logs in
 - Re-enable before production deploy
-
----
-
-## Git Workflow
-
-**Branching:** GitHub Flow. `main` is always deployable. All work happens on feature branches.
-
-```bash
-# Start a feature
-git checkout main && git pull origin main
-git checkout -b feature/<name>     # e.g. feature/friends, feature/expense-add
-
-# During work — commit often on the branch
-git add <specific files>           # never git add -A blindly
-git commit -m "<type>: <what and why>"
-
-# Push and open PR
-git push -u origin feature/<name>
-gh pr create --title "..." --body "..."
-
-# After PR merges, clean up
-git checkout main && git pull origin main
-git branch -d feature/<name>
-```
-
-**Commit message format:** `<type>: <concise summary>`
-Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `migration`
-Examples:
-- `feat: add friends list with per-friend net balance`
-- `fix: profile gate redirect loop after phone skip`
-- `migration: add friendships table with bidirectional unique index`
-
-**Rules for Claude Code:**
-1. **Check the branch first.** Run `git branch --show-current` before every commit. If it returns `main`, stop — ask the user which branch to use. Never commit directly to `main`.
-2. **Stage specific files.** Use `git add <file> [file...]`, never `git add -A` or `git add .` — avoid accidentally committing `.env*`, generated files, or unrelated changes.
-3. **One logical change per commit.** A migration and the code that uses it can go together. Unrelated changes go in separate commits.
-4. **No Co-Authored-By trailers.** Omit them.
-5. **Never force-push `main`.** Feature branches can be force-pushed if needed, but confirm with user first.
 
 ## Database
 
