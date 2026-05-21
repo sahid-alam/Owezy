@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -11,6 +12,7 @@ import { computeSourceBreakdown } from '../../lib/balance.js'
 import { formatINR } from '../../lib/money.js'
 import ExpenseList from '../../components/ExpenseList.jsx'
 import SourceBreakdownItem from '../../components/SourceBreakdownItem.jsx'
+import RemindSheet from '../../components/RemindSheet.jsx'
 
 function Spinner() {
   return (
@@ -26,6 +28,8 @@ export default function FriendDetail() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const userId = user?.id
+
+  const [remindOpen, setRemindOpen] = useState(false)
 
   const { expenses } = useFriendExpenses(friendId)
   const { balance } = useBalanceWithFriend(friendId)
@@ -153,9 +157,8 @@ export default function FriendDetail() {
                 </button>
               ) : (
                 <button
-                  disabled
-                  className="flex-1 py-2 border border-gray-200 text-gray-400 rounded-lg text-sm font-medium cursor-not-allowed"
-                  title="Reminders coming soon"
+                  onClick={() => setRemindOpen(true)}
+                  className="flex-1 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
                 >
                   Remind
                 </button>
@@ -221,6 +224,14 @@ export default function FriendDetail() {
             {blockMutation.isPending ? 'Blocking…' : 'Block'}
           </button>
         </div>
+      )}
+
+      {remindOpen && owesMe && balance && (
+        <RemindSheet
+          friend={{ name: friend.name, phone: friend.phone }}
+          balance={{ netAmount: balance.netAmount }}
+          onClose={() => setRemindOpen(false)}
+        />
       )}
     </div>
   )

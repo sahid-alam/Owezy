@@ -8,7 +8,9 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 
 **UPI-native friend debt tracker.** Splitwise reimagined for India: UPI deep links, WhatsApp reminders, Claude-powered bill splitting from receipt photos + natural-language description.
 
-**Status:** Auth (Pass 1), onboarding wizard (Pass 2), and friends graph (Pass 3) complete. Next: groups.
+**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7) complete. Next: AI receipt scan + voice splits (Pass 8).
+
+**Settlement FIFO rule (locked):** Confirmed settlements reduce the debtor's oldest expense obligations first. Overpayment flips balance direction — no artificial clamping.
 
 **Target users:** college students, flatmates, trip groups, office friends. INR only.
 
@@ -329,7 +331,19 @@ Migrations applied (Supabase project `kuwctkxsafdyhgykmgdh`):
 | `20260519000008_onboarding_state.sql` | adds onboarding_phone_skipped, onboarding_upi_skipped to profiles; avatars storage bucket + RLS |
 | `20260519000009_handle_new_user_no_email_prefix.sql` | handle_new_user uses '' instead of email prefix — email signups start at name step in onboarding |
 | `20260519000010_onboarding_completed.sql` | adds onboarding_completed flag; OnboardingInProgressGate checks this instead of isProfileComplete |
+| `20260519000011_group_member_rpcs.sql` | add_group_member RPC (admin-gated INSERT); leave_group RPC (any member, last-admin enforced) |
+| `20260519000012_create_group_rpc.sql` | create_group RPC (SECURITY DEFINER); fixes INSERT…RETURNING + AFTER trigger + RLS interaction where is_group_member evaluates before handle_new_group fires |
+| `20260519000013_fix_groups_update_policy.sql` | fixes groups UPDATE policy: was `group_members.group_id = group_members.id` (always false); corrected to `group_members.group_id = groups.id` |
+| `20260519000014_expense_audit_log.sql` | extends `is_expense_participant` to cover payer + creator + group/trip member + split participant; creates `expense_audit_log` table with SELECT-only RLS using helper; SECURITY DEFINER triggers: `on_expense_changed` (AFTER INSERT OR UPDATE on expenses → 'created'/'edited'/'deleted'), `on_expense_split_added` (AFTER INSERT on expense_splits → 'split_added', suppressible via `app.skip_split_audit` GUC) |
+| `20260519000015_expense_rpcs.sql` | four SECURITY DEFINER RPCs: `create_expense` (atomic insert + splits, suppresses split audit for initial splits), `update_expense` (creator-only patch + optional split replacement), `add_expense_participants` (equal-split-only upsert, audit fires only for new participants), `soft_delete_expense` (creator-only soft delete) |
+| `20260519000016_friend_balances_view.sql` | `friend_balances` VIEW — derived balance per pair (user_a, user_b, net_amount, direction). auth.uid() CTE filter restricts each user to their own pairs. Only confirmed settlements affect balance. SECURITY INVOKER — RLS on underlying tables applies automatically. |
+| `20260519000017_settlement_rpcs.sql` | four SECURITY DEFINER RPCs: `initiate_settlement`, `mark_settlement_paid`, `confirm_settlement`, `dispute_settlement`. Error codes: NOT_PAYER, NOT_PAYEE, WRONG_STATUS, SELF_SETTLE, INVALID_AMOUNT. |
+| `20260519000018_notification_triggers.sql` | `insert_notification` helper (prefs-gated, no GRANT to authenticated); `get_reminder_candidates` RPC (service-role, no auth.uid() filter); 5 SECURITY DEFINER triggers: `on_expense_audit_notify` (CONSTRAINT DEFERRABLE INITIALLY DEFERRED on expense_audit_log), `on_settlement_notify`, `on_settlement_confirmed_cycle_reset`, `on_group_member_notify`, `on_friendship_notify`; `reminder_count_in_cycle` + `last_reminded_at` columns on friendships. |
+| `20260519000019_notifications_realtime.sql` | `ALTER TABLE notifications REPLICA IDENTITY FULL` + `ALTER PUBLICATION supabase_realtime ADD TABLE notifications` — required for Supabase Realtime postgres_changes to deliver INSERT events with row-level filter `recipient_id=eq.{userId}`. |
+
+**Known pattern — INSERT + AFTER trigger + RETURNING + RLS:**
+Any table that uses an AFTER trigger to bootstrap membership (groups, trips) cannot use `INSERT … RETURNING` from the client, because the SELECT policy evaluates before the trigger fires. Solution: always route these INSERTs through a SECURITY DEFINER RPC that bypasses RLS, returns just the UUID.
 
 ---
 
-*Last updated: schema complete (Phase 1), scaffolding done. Vite PWA now, Expo RN later. Update on every locked decision change.*
+*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7) complete. Next: AI receipt scan + voice splits (Pass 8).*

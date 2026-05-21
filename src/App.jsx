@@ -17,6 +17,7 @@ import EditExpense from './pages/expenses/EditExpense.jsx'
 import SettleUp from './pages/settlements/SettleUp.jsx'
 import ConfirmSettlement from './pages/settlements/ConfirmSettlement.jsx'
 import Profile from './pages/Profile.jsx'
+import Notifications from './pages/Notifications.jsx'
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/settle/:friendId" element={<SettleUp />} />
           <Route path="/settlements/:settlementId/confirm" element={<ConfirmSettlement />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/notifications" element={<Notifications />} />
         </Route>
 
         <Route element={<OnboardingInProgressGate />}>

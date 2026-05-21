@@ -10,6 +10,7 @@ import BottomNav from '../components/BottomNav.jsx'
 import AddExpenseSheet from '../components/AddExpenseSheet.jsx'
 import FriendBalanceItem from '../components/FriendBalanceItem.jsx'
 import PendingConfirmationsList from '../components/PendingConfirmationsList.jsx'
+import NotificationBell from '../components/NotificationBell.jsx'
 
 function usePendingForMe(userId) {
   return useQuery({
@@ -63,7 +64,9 @@ export default function Home() {
         <h1 className="text-base font-semibold text-gray-900">
           {profile?.name ? `Hey, ${profile.name.split(' ')[0]}` : 'Owezy'}
         </h1>
-        <div className="relative">
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <div className="relative">
           <button
             onClick={() => setMenuOpen(v => !v)}
             className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg"
@@ -86,6 +89,7 @@ export default function Home() {
               </div>
             </>
           )}
+          </div>
         </div>
       </div>
 
