@@ -11,6 +11,11 @@ import GroupsIndex from './pages/groups/index.jsx'
 import CreateGroup from './pages/groups/CreateGroup.jsx'
 import GroupDetail from './pages/groups/GroupDetail.jsx'
 import EditGroup from './pages/groups/EditGroup.jsx'
+import TripsIndex from './pages/trips/index.jsx'
+import CreateTrip from './pages/trips/CreateTrip.jsx'
+import TripDetail from './pages/trips/TripDetail.jsx'
+import EditTrip from './pages/trips/EditTrip.jsx'
+import TripRecap from './pages/trips/TripRecap.jsx'
 import AddExpense from './pages/expenses/AddExpense.jsx'
 import ExpenseDetail from './pages/expenses/ExpenseDetail.jsx'
 import EditExpense from './pages/expenses/EditExpense.jsx'
@@ -34,6 +39,11 @@ export default function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/friends" element={<FriendsIndex />} />
           <Route path="/friends/:friendId" element={<FriendDetail />} />
+          <Route path="/trips" element={<TripsIndex />} />
+          <Route path="/trips/new" element={<CreateTrip />} />
+          <Route path="/trips/:tripId" element={<TripDetail />} />
+          <Route path="/trips/:tripId/edit" element={<EditTrip />} />
+          <Route path="/trips/:tripId/recap" element={<TripRecap />} />
           <Route path="/groups" element={<GroupsIndex />} />
           <Route path="/groups/new" element={<CreateGroup />} />
           <Route path="/groups/:groupId" element={<GroupDetail />} />

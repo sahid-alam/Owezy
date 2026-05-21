@@ -1,13 +1,17 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import toast from 'react-hot-toast'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useGroupMembers } from '../../hooks/useGroups.js'
+import { useTripMembers, useTrip } from '../../hooks/useTrips.js'
 import { useFriends } from '../../hooks/useFriends.js'
 import { useCreateExpense } from '../../hooks/useExpenses.js'
 import { expenseFormSchema, CATEGORIES, CATEGORY_LABELS } from '../../lib/schemas/expenses.js'
 import { computeEqualSplit, validateExactSplits } from '../../lib/split-math.js'
+import { formatINR } from '../../lib/money.js'
 import ParticipantPicker from '../../components/ParticipantPicker.jsx'
 import PaidByPicker from '../../components/PaidByPicker.jsx'
 import SplitEditor from '../../components/SplitEditor.jsx'
@@ -24,22 +28,30 @@ function Section({ title, children }) {
 export default function AddExpense() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const groupId = params.get('groupId')
+  const groupId  = params.get('groupId')
+  const tripId   = params.get('tripId')
   const friendId = params.get('friendId')
   const { user } = useAuth()
-  const userId = user?.id
+  const userId   = user?.id
+  const queryClient = useQueryClient()
 
   // Load candidates based on context
-  const { members: groupMembers, isLoading: groupLoading } = useGroupMembers(groupId)
-  const { friends, isLoading: friendsLoading } = useFriends()
+  const { members: groupMembers, isLoading: groupLoading }  = useGroupMembers(groupId)
+  const { members: tripMembers,  isLoading: tripLoading  }  = useTripMembers(tripId)
+  const { trip }                                             = useTrip(tripId)
+  const { friends, isLoading: friendsLoading }              = useFriends()
 
   const candidates = useMemo(() => {
+    if (tripId) {
+      return tripMembers
+        .filter(m => !m.deleted_at)
+        .map(m => ({ id: m.profile_id, name: m.profile?.name, avatar_url: m.profile?.avatar_url }))
+    }
     if (groupId) {
       return groupMembers
         .filter(m => !m.deleted_at)
         .map(m => ({ id: m.profile_id, name: m.profile?.name, avatar_url: m.profile?.avatar_url }))
     }
-    // Friend expense: self + the specific friend
     const selfProfile = { id: userId, name: user?.user_metadata?.name || 'You', avatar_url: null }
     if (friendId) {
       const friend = friends.find(f => f.friend.id === friendId)
@@ -48,7 +60,7 @@ export default function AddExpense() {
         : [selfProfile]
     }
     return [selfProfile]
-  }, [groupId, friendId, groupMembers, friends, userId, user])
+  }, [tripId, groupId, friendId, tripMembers, groupMembers, friends, userId, user])
 
   const [selectedIds, setSelectedIds] = useState(() => new Set([userId]))
   const [paidBy, setPaidBy] = useState(userId)
@@ -92,7 +104,7 @@ export default function AddExpense() {
   const activeSplits = splitType === 'equal' ? equalSplits : customSplits
 
   const createExpense = useCreateExpense()
-  const isLoading = groupLoading || friendsLoading
+  const isLoading = groupLoading || tripLoading || friendsLoading
 
   async function onSubmit(data) {
     if (splitType === 'custom' && !validateExactSplits(data.amount, customSplits)) {
@@ -105,7 +117,7 @@ export default function AddExpense() {
         amount:    Number(data.amount),
         paidBy,
         groupId:   groupId || null,
-        tripId:    null,
+        tripId:    tripId  || null,
         category:  data.category || null,
         date:      data.date,
         notes:     data.notes || null,
@@ -115,6 +127,17 @@ export default function AddExpense() {
           amount:     Number(s.amount),
         })),
       })
+
+      // Non-blocking daily budget warning
+      if (tripId && trip?.daily_budget) {
+        const cached = queryClient.getQueryData(['trip-expenses', tripId]) ?? []
+        const dayTotal = [...cached].filter(e => e.date === data.date)
+          .reduce((s, e) => s + Number(e.amount), 0) + Number(data.amount)
+        if (dayTotal > Number(trip.daily_budget)) {
+          toast(`Day's spend ${formatINR(dayTotal)} exceeds your ${formatINR(trip.daily_budget)} daily budget`, { icon: '⚠️' })
+        }
+      }
+
       navigate(-1)
     } catch {
       // toast handled by hook

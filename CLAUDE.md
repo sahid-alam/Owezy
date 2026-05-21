@@ -8,7 +8,7 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 
 **UPI-native friend debt tracker.** Splitwise reimagined for India: UPI deep links, WhatsApp reminders, Claude-powered bill splitting from receipt photos + natural-language description.
 
-**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7) complete. Next: AI receipt scan + voice splits (Pass 8).
+**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8) complete. Next: AI receipt scan + voice splits (Pass 9).
 
 **Settlement FIFO rule (locked):** Confirmed settlements reduce the debtor's oldest expense obligations first. Overpayment flips balance direction — no artificial clamping.
 
@@ -340,10 +340,24 @@ Migrations applied (Supabase project `kuwctkxsafdyhgykmgdh`):
 | `20260519000017_settlement_rpcs.sql` | four SECURITY DEFINER RPCs: `initiate_settlement`, `mark_settlement_paid`, `confirm_settlement`, `dispute_settlement`. Error codes: NOT_PAYER, NOT_PAYEE, WRONG_STATUS, SELF_SETTLE, INVALID_AMOUNT. |
 | `20260519000018_notification_triggers.sql` | `insert_notification` helper (prefs-gated, no GRANT to authenticated); `get_reminder_candidates` RPC (service-role, no auth.uid() filter); 5 SECURITY DEFINER triggers: `on_expense_audit_notify` (CONSTRAINT DEFERRABLE INITIALLY DEFERRED on expense_audit_log), `on_settlement_notify`, `on_settlement_confirmed_cycle_reset`, `on_group_member_notify`, `on_friendship_notify`; `reminder_count_in_cycle` + `last_reminded_at` columns on friendships. |
 | `20260519000019_notifications_realtime.sql` | `ALTER TABLE notifications REPLICA IDENTITY FULL` + `ALTER PUBLICATION supabase_realtime ADD TABLE notifications` — required for Supabase Realtime postgres_changes to deliver INSERT events with row-level filter `recipient_id=eq.{userId}`. |
+| `20260519000020_trip_write_rpcs.sql` | `daily_budget` column on trips; SECURITY DEFINER RPCs: `create_trip` (bypass INSERT+AFTER trigger+RLS), `add_trip_member`, `leave_trip`, `set_trip_member_role`. |
+| `20260519000021_trip_query_rpcs.sql` | SECURITY DEFINER RPCs: `get_trip_balances` (trip-scoped pair balances, skips membership check under service role), `get_trip_summary` (totals + top categories for recap), `get_trip_personal_insights` (raw per-member stats for badge computation). |
+| `20260519000022_trip_notifications.sql` | `notify_on_trip_member_change` trigger — reuses `group_added/removed/admin_granted/revoked` types with `data.context='trip'` to avoid new notification_prefs columns. |
+| `20260519000023_fix_trip_insights_settle_secs.sql` | Fixes cartesian join bug in `get_trip_personal_insights`: `avg_settle_secs` now measures settlement initiation→confirmation time (`s.confirmed_at - s.created_at`), not a cross-join with expenses. |
+| `20260519000024_fix_trip_balances_plpgsql_shadowing.sql` | Fixes PL/pgSQL variable shadowing: `RETURNS TABLE(user_a, user_b)` OUT params shadowed same-named CTE aliases. CTEs renamed to `ua`/`ub` internally, cast to `user_a`/`user_b` in final SELECT. |
 
 **Known pattern — INSERT + AFTER trigger + RETURNING + RLS:**
 Any table that uses an AFTER trigger to bootstrap membership (groups, trips) cannot use `INSERT … RETURNING` from the client, because the SELECT policy evaluates before the trigger fires. Solution: always route these INSERTs through a SECURITY DEFINER RPC that bypasses RLS, returns just the UUID.
 
 ---
 
-*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7) complete. Next: AI receipt scan + voice splits (Pass 8).*
+**Trip Mode decisions (locked):**
+- `get_trip_balances` is a SECURITY DEFINER RPC (not a view) — works under both auth and service-role contexts. `friend_balances` view returns empty rows under service role.
+- Trip notifications reuse `group_added/removed/admin_granted/revoked` types with `data.context='trip'`. `notification-copy.js` checks this field to render trip vs group copy and route deep links to `/trips/` vs `/groups/`.
+- Trip-tag algorithm priority order is locked — do not reorder without product review.
+- Recap card SVG never includes full names — initials only by design (avoids Supabase Storage CORS issues with avatar images in SVG).
+- Badge computation lives in `src/lib/trips.js` as pure JS function — not SQL — for easy iteration without migrations.
+- `TripExpensesByDay` date generation uses `getFullYear/getMonth/getDate` (local time), not `toISOString()` (UTC) — avoids off-by-one day shift in UTC+5:30.
+- Recap card blob URL created in `useEffect` (not `useMemo`) so React StrictMode double-invoke doesn't revoke the URL before the image loads.
+
+*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8) complete. Next: AI receipt scan + voice splits (Pass 9).*

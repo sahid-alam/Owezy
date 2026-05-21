@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../hooks/useAuth.js'
@@ -19,6 +19,8 @@ function Spinner() {
 export default function SettleUp() {
   const { friendId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const tripId = searchParams.get('tripId') || null
   const { user } = useAuth()
   const userId = user?.id
 
@@ -86,6 +88,7 @@ export default function SettleUp() {
       payeeId: friendId,
       amount: parsedAmount,
       note: note || null,
+      tripId,
     })
     navigate(-1)
   }
@@ -98,6 +101,7 @@ export default function SettleUp() {
 
       <div className="px-4 pt-6 pb-4">
         <h1 className="text-2xl font-bold text-gray-900">Pay {friend?.name}</h1>
+        {tripId && <p className="text-xs text-indigo-600 font-medium mt-0.5">Settling trip balance</p>}
         {balance && balance.direction === 'i_owe' && balance.netAmount > 0 && (
           <p className="text-sm text-red-500 mt-1">You owe {formatINR(balance.netAmount)}</p>
         )}

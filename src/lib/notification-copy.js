@@ -45,28 +45,44 @@ export function getNotificationCopy(type, data = {}) {
       }
 
     case 'group_added':
-      return {
+      return data.context === 'trip' ? {
+        title:    'Added to trip',
+        body:     `${data.actor_name || 'Someone'} added you to "${data.group_name}"`,
+        deepLink: `/trips/${data.group_id}`,
+      } : {
         title:    'Added to group',
         body:     `${data.actor_name || 'Someone'} added you to "${data.group_name}"`,
         deepLink: `/groups/${data.group_id}`,
       }
 
     case 'group_removed':
-      return {
+      return data.context === 'trip' ? {
+        title:    'Removed from trip',
+        body:     `You were removed from "${data.group_name}"`,
+        deepLink: `/trips`,
+      } : {
         title:    'Removed from group',
         body:     `You were removed from "${data.group_name}"`,
         deepLink: `/groups`,
       }
 
     case 'group_admin_granted':
-      return {
-        title:    'You\'re now an admin',
+      return data.context === 'trip' ? {
+        title:    "You're now a trip admin",
+        body:     `You were made an admin of "${data.group_name}"`,
+        deepLink: `/trips/${data.group_id}`,
+      } : {
+        title:    "You're now an admin",
         body:     `You were made an admin of "${data.group_name}"`,
         deepLink: `/groups/${data.group_id}`,
       }
 
     case 'group_admin_revoked':
-      return {
+      return data.context === 'trip' ? {
+        title:    'Trip admin role removed',
+        body:     `Your admin role in "${data.group_name}" was removed`,
+        deepLink: `/trips/${data.group_id}`,
+      } : {
         title:    'Admin role removed',
         body:     `Your admin role in "${data.group_name}" was removed`,
         deepLink: `/groups/${data.group_id}`,
