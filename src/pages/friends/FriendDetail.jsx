@@ -4,6 +4,13 @@ import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase.js'
 import { getActiveFriendship, unfriend, blockFriend } from '../../lib/friends.js'
 import { useAuth } from '../../hooks/useAuth.js'
+import { useFriendExpenses } from '../../hooks/useExpenses.js'
+import { useBalanceWithFriend } from '../../hooks/useBalances.js'
+import { useSettlementsBetween } from '../../hooks/useSettlements.js'
+import { computeSourceBreakdown } from '../../lib/balance.js'
+import { formatINR } from '../../lib/money.js'
+import ExpenseList from '../../components/ExpenseList.jsx'
+import SourceBreakdownItem from '../../components/SourceBreakdownItem.jsx'
 
 function Spinner() {
   return (
@@ -19,6 +26,10 @@ export default function FriendDetail() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const userId = user?.id
+
+  const { expenses } = useFriendExpenses(friendId)
+  const { balance } = useBalanceWithFriend(friendId)
+  const { settlements } = useSettlementsBetween(friendId)
 
   const profileQuery = useQuery({
     queryKey: ['profile', friendId],
@@ -78,6 +89,15 @@ export default function FriendDetail() {
     ? friend.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?'
 
+  // Source breakdown
+  const breakdown = computeSourceBreakdown(expenses, settlements, userId, friendId)
+  const iOwe = balance?.direction === 'i_owe'
+  const owesMe = balance?.direction === 'owes_me'
+  const hasBalance = balance && balance.netAmount > 0
+
+  // The outstanding debts from the perspective of "what's shown below the balance card"
+  const outstandingDebts = iOwe ? breakdown.myDebts : breakdown.theirDebts
+
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
@@ -104,11 +124,82 @@ export default function FriendDetail() {
         )}
       </div>
 
-      {/* Placeholder */}
-      <div className="mx-4 p-4 bg-gray-50 rounded-xl">
-        <p className="text-sm text-gray-400 text-center">
-          Expenses and balances coming in the next update
-        </p>
+      {/* Balance card */}
+      <div className="mx-4 mb-4 rounded-2xl border border-gray-100 overflow-hidden">
+        {!hasBalance ? (
+          <div className="px-4 py-4 flex items-center gap-2">
+            <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-sm text-gray-500">All settled up</span>
+          </div>
+        ) : (
+          <>
+            <div className={`px-4 py-4 ${iOwe ? 'bg-red-50' : 'bg-green-50'}`}>
+              <p className={`text-sm font-medium ${iOwe ? 'text-red-600' : 'text-green-700'}`}>
+                {iOwe
+                  ? `You owe ${friend.name} ${formatINR(balance.netAmount)}`
+                  : `${friend.name} owes you ${formatINR(balance.netAmount)}`
+                }
+              </p>
+            </div>
+            <div className="px-4 py-3 flex gap-2">
+              {iOwe ? (
+                <button
+                  onClick={() => navigate(`/settle/${friendId}`)}
+                  className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold"
+                >
+                  Settle up
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="flex-1 py-2 border border-gray-200 text-gray-400 rounded-lg text-sm font-medium cursor-not-allowed"
+                  title="Reminders coming soon"
+                >
+                  Remind
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Source breakdown (only when there's an outstanding balance) */}
+      {hasBalance && outstandingDebts.length > 0 && (
+        <div className="border-t border-gray-100">
+          <p className="px-4 pt-4 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Breakdown
+          </p>
+          {outstandingDebts.map(d => (
+            <SourceBreakdownItem
+              key={d.expenseId}
+              expenseId={d.expenseId}
+              title={d.title}
+              amount={d.amount}
+              date={d.date}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Expenses */}
+      <div className="border-t border-gray-100 mt-4">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expenses</p>
+          <button
+            onClick={() => navigate(`/expenses/new?friendId=${friendId}`)}
+            className="text-sm text-indigo-600 font-medium"
+          >
+            + Add
+          </button>
+        </div>
+        <ExpenseList
+          expenses={expenses}
+          myId={userId}
+          onAdd={() => navigate(`/expenses/new?friendId=${friendId}`)}
+          emptyMessage="No expenses yet — add one to start splitting"
+        />
       </div>
 
       {/* Actions — only shown when an active friendship exists */}

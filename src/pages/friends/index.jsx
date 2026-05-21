@@ -3,6 +3,7 @@ import { useFriends } from '../../hooks/useFriends.js'
 import FriendListItem from '../../components/FriendListItem.jsx'
 import RequestListItem from '../../components/RequestListItem.jsx'
 import AddFriendSheet from '../../components/AddFriendSheet.jsx'
+import BottomNav from '../../components/BottomNav.jsx'
 
 function Spinner() {
   return (
@@ -33,7 +34,7 @@ export default function FriendsIndex() {
   } = useFriends()
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen bg-white pb-16">
       {/* Header */}
       <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
         <h1 className="text-lg font-bold text-gray-900">Friends</h1>
@@ -163,6 +164,7 @@ export default function FriendsIndex() {
       </div>
 
       {sheetOpen && <AddFriendSheet onClose={() => setSheetOpen(false)} />}
+      <BottomNav />
     </div>
   )
 }
