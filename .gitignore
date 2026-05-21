@@ -21,4 +21,4 @@ Thumbs.db
 
 # Claude Code — machine-specific configs, not project code
 .mcp.json
-.claude/settings.local.json
+.claude/
