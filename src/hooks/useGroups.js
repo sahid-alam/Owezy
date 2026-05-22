@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from './useAuth.js'
+import { throwIfOffline } from '../lib-web/offline.js'
 import {
   createGroup as createGroupFn,
   listMyGroups,
@@ -44,21 +45,21 @@ export function useGroup(groupId) {
   })
 
   const updateGroup = useMutation({
-    mutationFn: (patch) => updateGroupFn(groupId, patch),
+    mutationFn: (patch) => { throwIfOffline(); return updateGroupFn(groupId, patch) },
     onSuccess: () => {
       toast.success('Group updated')
       inv(['group', groupId], ['groups', userId])
     },
-    onError: () => toast.error("Couldn't update — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't update — try again") },
   })
 
   const archiveGroup = useMutation({
-    mutationFn: () => archiveGroupFn(groupId),
+    mutationFn: () => { throwIfOffline(); return archiveGroupFn(groupId) },
     onSuccess: () => {
       toast.success('Group archived')
       inv(['groups', userId])
     },
-    onError: () => toast.error("Couldn't archive — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't archive — try again") },
   })
 
   return {
@@ -88,12 +89,13 @@ export function useGroupMembers(groupId) {
   const isAdmin = callerMember?.role === 'admin'
 
   const addMember = useMutation({
-    mutationFn: (profileId) => addMemberByProfile(groupId, profileId),
+    mutationFn: (profileId) => { throwIfOffline(); return addMemberByProfile(groupId, profileId) },
     onSuccess: () => {
       toast.success('Member added')
       inv(['group-members', groupId], ['groups', userId])
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       const msgs = {
         NOT_ADMIN: "You're not an admin",
         ALREADY_MEMBER: 'Already in this group',
@@ -103,39 +105,40 @@ export function useGroupMembers(groupId) {
   })
 
   const removeMember = useMutation({
-    mutationFn: (profileId) => removeMemberFn(groupId, profileId),
+    mutationFn: (profileId) => { throwIfOffline(); return removeMemberFn(groupId, profileId) },
     onSuccess: () => {
       toast.success('Removed from group')
       inv(['group-members', groupId])
     },
-    onError: () => toast.error("Couldn't remove — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't remove — try again") },
   })
 
   const promoteToAdmin = useMutation({
-    mutationFn: (profileId) => promoteToAdminFn(groupId, profileId),
+    mutationFn: (profileId) => { throwIfOffline(); return promoteToAdminFn(groupId, profileId) },
     onSuccess: () => {
       toast.success('Made admin')
       inv(['group-members', groupId])
     },
-    onError: () => toast.error("Couldn't update role — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't update role — try again") },
   })
 
   const demoteFromAdmin = useMutation({
-    mutationFn: (profileId) => demoteFromAdminFn(groupId, profileId),
+    mutationFn: (profileId) => { throwIfOffline(); return demoteFromAdminFn(groupId, profileId) },
     onSuccess: () => {
       toast.success('Removed as admin')
       inv(['group-members', groupId])
     },
-    onError: () => toast.error("Couldn't update role — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't update role — try again") },
   })
 
   const leaveGroup = useMutation({
-    mutationFn: () => leaveGroupFn(groupId),
+    mutationFn: () => { throwIfOffline(); return leaveGroupFn(groupId) },
     onSuccess: () => {
       toast.success('Left group')
       inv(['groups', userId])
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       toast.error(
         err.message === 'LAST_ADMIN'
           ? "You're the only admin — promote someone first"
@@ -163,10 +166,10 @@ export function useCreateGroup() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (vals) => createGroupFn(userId, vals),
+    mutationFn: (vals) => { throwIfOffline(); return createGroupFn(userId, vals) },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups', userId] })
     },
-    onError: () => toast.error("Couldn't create group — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't create group — try again") },
   })
 }

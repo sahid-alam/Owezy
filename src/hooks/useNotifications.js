@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from './useAuth.js'
+import { throwIfOffline } from '../lib-web/offline.js'
 import {
   listNotifications,
   getUnreadCount,
@@ -65,7 +66,7 @@ export function useMarkRead() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: markRead,
+    mutationFn: (id) => { throwIfOffline(); return markRead(id) },
     // Optimistic: flip the unread dot immediately
     onMutate: async (notificationId) => {
       await queryClient.cancelQueries({ queryKey: ['notifications', userId] })
@@ -97,7 +98,7 @@ export function useMarkAllRead() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: markAllRead,
+    mutationFn: () => { throwIfOffline(); return markAllRead() },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', userId] })
       queryClient.invalidateQueries({ queryKey: ['notifications', userId, 'unread'] })

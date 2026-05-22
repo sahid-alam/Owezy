@@ -11,6 +11,7 @@ import AddExpenseSheet from '../components/AddExpenseSheet.jsx'
 import FriendBalanceItem from '../components/FriendBalanceItem.jsx'
 import PendingConfirmationsList from '../components/PendingConfirmationsList.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import InstallBanner from '../components/InstallBanner.jsx'
 
 function usePendingForMe(userId) {
   return useQuery({
@@ -92,6 +93,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <InstallBanner />
 
       {/* Summary pills */}
       {!isLoading && (totalIOwe > 0 || totalOwedMe > 0) && (

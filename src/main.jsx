@@ -1,12 +1,24 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, MutationCache } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import './index.css'
 import App from './App.jsx'
+import { incrementSessionCount } from './lib-web/install-prompt.js'
 
-const queryClient = new QueryClient()
+incrementSessionCount()
+
+const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: (err) => {
+      if (err?.message === 'OFFLINE') {
+        toast("You're offline — try again when connected", { icon: '📵', id: 'offline-mutation' })
+      }
+    },
+  }),
+})
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

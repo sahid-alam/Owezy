@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from './useAuth.js'
+import { throwIfOffline } from '../lib-web/offline.js'
 import {
   createTrip as createTripFn,
   listMyTrips,
@@ -48,21 +49,21 @@ export function useTrip(tripId) {
   })
 
   const updateTrip = useMutation({
-    mutationFn: (patch) => updateTripFn(tripId, patch),
+    mutationFn: (patch) => { throwIfOffline(); return updateTripFn(tripId, patch) },
     onSuccess: () => {
       toast.success('Trip updated')
       inv(['trip', tripId], ['trips', userId])
     },
-    onError: () => toast.error("Couldn't update trip — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't update trip — try again") },
   })
 
   const archiveTrip = useMutation({
-    mutationFn: () => archiveTripFn(tripId),
+    mutationFn: () => { throwIfOffline(); return archiveTripFn(tripId) },
     onSuccess: () => {
       toast.success('Trip archived')
       inv(['trips', userId])
     },
-    onError: () => toast.error("Couldn't archive trip — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't archive trip — try again") },
   })
 
   return {
@@ -92,12 +93,13 @@ export function useTripMembers(tripId) {
   const isAdmin = callerMember?.role === 'admin'
 
   const addMember = useMutation({
-    mutationFn: (profileId) => addTripMemberFn(tripId, profileId),
+    mutationFn: (profileId) => { throwIfOffline(); return addTripMemberFn(tripId, profileId) },
     onSuccess: () => {
       toast.success('Member added')
       inv(['trip-members', tripId], ['trips', userId])
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       const msgs = {
         NOT_ADMIN:      "You're not an admin",
         ALREADY_MEMBER: 'Already in this trip',
@@ -107,21 +109,22 @@ export function useTripMembers(tripId) {
   })
 
   const removeMember = useMutation({
-    mutationFn: (profileId) => removeTripMemberFn(tripId, profileId),
+    mutationFn: (profileId) => { throwIfOffline(); return removeTripMemberFn(tripId, profileId) },
     onSuccess: () => {
       toast.success('Removed from trip')
       inv(['trip-members', tripId])
     },
-    onError: () => toast.error("Couldn't remove member — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't remove member — try again") },
   })
 
   const setMemberRole = useMutation({
-    mutationFn: ({ profileId, role }) => setTripMemberRoleFn(tripId, profileId, role),
+    mutationFn: ({ profileId, role }) => { throwIfOffline(); return setTripMemberRoleFn(tripId, profileId, role) },
     onSuccess: (_, { role }) => {
       toast.success(role === 'admin' ? 'Made admin' : 'Removed as admin')
       inv(['trip-members', tripId])
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       toast.error(
         err.message === 'LAST_ADMIN'
           ? "You're the only admin — promote someone first"
@@ -131,12 +134,13 @@ export function useTripMembers(tripId) {
   })
 
   const leaveTrip = useMutation({
-    mutationFn: () => leaveTripFn(tripId),
+    mutationFn: () => { throwIfOffline(); return leaveTripFn(tripId) },
     onSuccess: () => {
       toast.success('Left trip')
       inv(['trips', userId])
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       toast.error(
         err.message === 'LAST_ADMIN'
           ? "You're the only admin — promote someone first"
@@ -163,11 +167,12 @@ export function useCreateTrip() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: createTripFn,
+    mutationFn: (vals) => { throwIfOffline(); return createTripFn(vals) },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips', userId] })
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       toast.error(
         err.message === 'INVALID_DATES'
           ? 'End date must be on or after start date'

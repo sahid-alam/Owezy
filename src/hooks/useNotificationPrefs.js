@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { getMyNotificationPrefs, updateMyNotificationPrefs } from '../lib/notification-prefs.js'
 import { useAuth } from './useAuth.js'
+import { throwIfOffline } from '../lib-web/offline.js'
 
 export function useNotificationPrefs() {
   const { user } = useAuth()
@@ -22,7 +23,7 @@ export function useUpdateNotificationPref() {
   const key = ['notification-prefs', user?.id]
 
   return useMutation({
-    mutationFn: (patch) => updateMyNotificationPrefs(user.id, patch),
+    mutationFn: (patch) => { throwIfOffline(); return updateMyNotificationPrefs(user.id, patch) },
 
     onMutate: async (patch) => {
       await queryClient.cancelQueries({ queryKey: key })
@@ -31,8 +32,9 @@ export function useUpdateNotificationPref() {
       return { previous }
     },
 
-    onError: (_err, _patch, ctx) => {
+    onError: (err, _patch, ctx) => {
       queryClient.setQueryData(key, ctx?.previous)
+      if (err.message === 'OFFLINE') return
       toast.error("Couldn't save preference")
     },
 

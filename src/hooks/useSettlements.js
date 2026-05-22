@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from './useAuth.js'
+import { throwIfOffline } from '../lib-web/offline.js'
 import {
   listSettlementsBetween,
   getSettlement,
@@ -52,6 +53,7 @@ export function useInitiateAndPay() {
 
   return useMutation({
     mutationFn: async ({ payeeId, amount, note, groupId, tripId }) => {
+      throwIfOffline()
       const id = await initiateSettlementFn({ payeeId, amount, note, groupId, tripId })
       await markAsPaidFn(id)
       return { id, payeeId }
@@ -61,6 +63,7 @@ export function useInitiateAndPay() {
       invalidate(payeeId)
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       const msgs = {
         SELF_SETTLE:     "You can't settle with yourself",
         INVALID_AMOUNT:  "Amount must be greater than ₹0",
@@ -75,13 +78,13 @@ export function useConfirmSettlement(payerId) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: confirmSettlementFn,
+    mutationFn: (id) => { throwIfOffline(); return confirmSettlementFn(id) },
     onSuccess: (_, settlementId) => {
       toast.success("Payment confirmed")
       invalidate(payerId)
       queryClient.invalidateQueries({ queryKey: ['settlement', settlementId] })
     },
-    onError: () => toast.error("Couldn't confirm — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't confirm — try again") },
   })
 }
 
@@ -90,12 +93,12 @@ export function useDisputeSettlement(payerId) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: disputeSettlementFn,
+    mutationFn: (id) => { throwIfOffline(); return disputeSettlementFn(id) },
     onSuccess: (_, settlementId) => {
       toast.success("Disputed — ask them to try again")
       invalidate(payerId)
       queryClient.invalidateQueries({ queryKey: ['settlement', settlementId] })
     },
-    onError: () => toast.error("Couldn't dispute — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't dispute — try again") },
   })
 }

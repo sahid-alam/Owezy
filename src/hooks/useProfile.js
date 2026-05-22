@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { getMyProfile, updateMyProfile, uploadAvatar as libUploadAvatar, removeAvatar as libRemoveAvatar } from '../lib/profile.js'
 import { compressImage } from '../lib-web/compress-image.js'
 import { useAuth } from './useAuth.js'
@@ -15,11 +16,19 @@ export function useProfile() {
   })
 
   async function updateProfile(patch) {
+    if (!navigator.onLine) {
+      toast("You're offline — try again when connected", { icon: '📵', id: 'offline-mutation' })
+      throw new Error('OFFLINE')
+    }
     await updateMyProfile(user.id, patch)
     await queryClient.invalidateQueries({ queryKey: ['profile', user?.id] })
   }
 
   async function uploadAvatar(file) {
+    if (!navigator.onLine) {
+      toast("You're offline — try again when connected", { icon: '📵', id: 'offline-mutation' })
+      throw new Error('OFFLINE')
+    }
     const blob = await compressImage(file)
     const url = await libUploadAvatar(blob, user.id)
     await updateProfile({ avatar_url: url })
@@ -27,6 +36,10 @@ export function useProfile() {
   }
 
   async function removeAvatar() {
+    if (!navigator.onLine) {
+      toast("You're offline — try again when connected", { icon: '📵', id: 'offline-mutation' })
+      throw new Error('OFFLINE')
+    }
     await libRemoveAvatar(user.id)
     await queryClient.invalidateQueries({ queryKey: ['profile', user?.id] })
   }

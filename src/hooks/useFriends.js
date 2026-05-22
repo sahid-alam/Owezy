@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDeferredValue, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { useAuth } from './useAuth.js'
+import { throwIfOffline } from '../lib-web/offline.js'
 import {
   listFriends, listIncomingRequests, listOutgoingRequests,
   listPendingGuestInvites, getAllActiveFriendships,
@@ -50,12 +51,13 @@ export function useFriends() {
   })
 
   const sendRequest = useMutation({
-    mutationFn: (addresseeId) => sendFriendRequest(addresseeId, userId),
+    mutationFn: (addresseeId) => { throwIfOffline(); return sendFriendRequest(addresseeId, userId) },
     onSuccess: () => {
       toast.success('Friend request sent')
       inv(['friendships', 'outgoing', userId], ['friendships', 'all-active', userId])
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       const msgs = {
         BLOCKED: "Can't send a request to this person",
         ALREADY_PENDING: 'Already sent a request',
@@ -67,7 +69,7 @@ export function useFriends() {
   })
 
   const acceptRequest = useMutation({
-    mutationFn: (friendshipId) => acceptFriendRequest(friendshipId),
+    mutationFn: (friendshipId) => { throwIfOffline(); return acceptFriendRequest(friendshipId) },
     onSuccess: () => {
       toast.success('Friend request accepted')
       inv(
@@ -76,49 +78,50 @@ export function useFriends() {
         ['friendships', 'all-active', userId],
       )
     },
-    onError: () => toast.error("Couldn't accept — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't accept — try again") },
   })
 
   const rejectRequest = useMutation({
-    mutationFn: (friendshipId) => rejectFriendRequest(friendshipId),
+    mutationFn: (friendshipId) => { throwIfOffline(); return rejectFriendRequest(friendshipId) },
     onSuccess: () => {
       inv(['friendships', 'incoming', userId], ['friendships', 'all-active', userId])
     },
-    onError: () => toast.error("Couldn't decline — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't decline — try again") },
   })
 
   const cancelRequest = useMutation({
-    mutationFn: (friendshipId) => cancelFriendRequest(friendshipId),
+    mutationFn: (friendshipId) => { throwIfOffline(); return cancelFriendRequest(friendshipId) },
     onSuccess: () => {
       toast.success('Request cancelled')
       inv(['friendships', 'outgoing', userId], ['friendships', 'all-active', userId])
     },
-    onError: () => toast.error("Couldn't cancel — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't cancel — try again") },
   })
 
   const unfriendMutation = useMutation({
-    mutationFn: (friendshipId) => unfriend(friendshipId),
+    mutationFn: (friendshipId) => { throwIfOffline(); return unfriend(friendshipId) },
     onSuccess: () => {
       inv(['friends', userId], ['friendships', 'all-active', userId])
     },
-    onError: () => toast.error("Couldn't remove friend — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't remove friend — try again") },
   })
 
   const blockMutation = useMutation({
-    mutationFn: (friendshipId) => blockFriend(friendshipId),
+    mutationFn: (friendshipId) => { throwIfOffline(); return blockFriend(friendshipId) },
     onSuccess: () => {
       inv(['friends', userId], ['friendships', 'all-active', userId])
     },
-    onError: () => toast.error("Couldn't block — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't block — try again") },
   })
 
   const createInvite = useMutation({
-    mutationFn: (phone) => createGuestInvite(phone, userId),
+    mutationFn: (phone) => { throwIfOffline(); return createGuestInvite(phone, userId) },
     onSuccess: () => {
       toast.success('Invite created')
       inv(['guest-invites', userId])
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       const msgs = {
         BLOCKED: "Can't invite this number",
         INVALID_PHONE: 'Enter a valid phone number',
@@ -129,9 +132,9 @@ export function useFriends() {
   })
 
   const cancelInvite = useMutation({
-    mutationFn: (inviteId) => cancelGuestInvite(inviteId),
+    mutationFn: (inviteId) => { throwIfOffline(); return cancelGuestInvite(inviteId) },
     onSuccess: () => inv(['guest-invites', userId]),
-    onError: () => toast.error("Couldn't cancel invite — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't cancel invite — try again") },
   })
 
   return {

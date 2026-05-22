@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from './useAuth.js'
+import { throwIfOffline } from '../lib-web/offline.js'
 import {
   listGroupExpenses,
   listFriendExpenses,
@@ -59,7 +60,7 @@ export function useCreateExpense() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: createExpenseFn,
+    mutationFn: (vars) => { throwIfOffline(); return createExpenseFn(vars) },
     onSuccess: (_, vars) => {
       toast.success('Expense added')
       if (vars.groupId) {
@@ -69,6 +70,7 @@ export function useCreateExpense() {
       }
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       const msgs = {
         PAYER_NOT_IN_SPLITS: "The payer must be included in the split",
         SPLIT_SUM_MISMATCH:  "Split amounts don't add up to the total",
@@ -85,15 +87,15 @@ export function useUpdateExpense(expenseId) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ patch, newSplits }) => updateExpenseFn(expenseId, patch, newSplits),
+    mutationFn: ({ patch, newSplits }) => { throwIfOffline(); return updateExpenseFn(expenseId, patch, newSplits) },
     onSuccess: (_, vars) => {
       toast.success('Expense updated')
       queryClient.invalidateQueries({ queryKey: ['expense', expenseId] })
       queryClient.invalidateQueries({ queryKey: ['expense-audit', expenseId] })
-      // Broad invalidation — we don't know context here
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
     },
     onError: (err) => {
+      if (err.message === 'OFFLINE') return
       const msgs = {
         NOT_CREATOR:        "Only the creator can edit this expense",
         SPLIT_SUM_MISMATCH: "Split amounts don't add up to the total",
@@ -107,12 +109,12 @@ export function useSoftDeleteExpense() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: softDeleteExpenseFn,
+    mutationFn: (id) => { throwIfOffline(); return softDeleteExpenseFn(id) },
     onSuccess: () => {
       toast.success('Expense removed')
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['expense'] })
     },
-    onError: () => toast.error("Couldn't remove expense — try again"),
+    onError: (err) => { if (err.message === 'OFFLINE') return; toast.error("Couldn't remove expense — try again") },
   })
 }

@@ -8,7 +8,7 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 
 **UPI-native friend debt tracker.** Splitwise reimagined for India: UPI deep links, WhatsApp reminders, Claude-powered bill splitting from receipt photos + natural-language description.
 
-**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9), AI receipt scan + voice splits (Pass 10) complete.
+**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9), AI receipt scan + voice splits (Pass 10), PWA polish — install banners + offline read + workbox caching (Pass 11) complete. **Phase 1 MVP complete.**
 
 **Settlement FIFO rule (locked):** Confirmed settlements reduce the debtor's oldest expense obligations first. Overpayment flips balance direction — no artificial clamping.
 
@@ -375,4 +375,18 @@ Any table that uses an AFTER trigger to bootstrap membership (groups, trips) can
 - `buildMergedDescription`: merges tap-assign chips into text description (e.g. "Yasir and Ayan had the Patiala Chicken") before AI split call — single unified input to model.
 - Retry type in `ai_usage`: OCR retries logged as `'retry'` not `'ocr'` to distinguish from first-attempt usage in rate-limit monitoring.
 
-*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9), AI receipt scan + voice splits (Pass 10) complete.*
+*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9), AI receipt scan + voice splits (Pass 10), PWA polish (Pass 11) complete. Phase 1 MVP complete.*
+
+---
+
+**PWA Polish decisions (locked — Pass 11):**
+- `vite-plugin-pwa` with `registerType: 'autoUpdate'` + `workbox.skipWaiting: true` + `workbox.clientsClaim: true` — new SW activates immediately on next page load without user action.
+- No update toast — autoUpdate applies silently. One less moving part for MVP.
+- Workbox runtime caching: NetworkFirst (10s timeout) for Supabase REST (`/rest/` path); CacheFirst (55min, 200 entries) for Supabase Storage (`/storage/` path).
+- Offline mutation guard: `throwIfOffline()` in `mutationFn` of every useMutation hook + global `MutationCache.onError` in `main.jsx` shows single toast with `id: 'offline-mutation'` (deduplicated). Per-hook `onError` skips toast when `err.message === 'OFFLINE'` to prevent double-toast.
+- `useProfile.js` uses plain async functions (not useMutation) — inline `!navigator.onLine` check + toast + throw instead.
+- `incrementSessionCount()` called once in `main.jsx` on app boot (guarded by sessionStorage to survive React StrictMode double-invoke). Session count gates install prompt at ≥3 sessions.
+- iOS install banner: permanent dismissal via `localStorage 'ios_install_dismissed'`, no re-show. Android: 30-day re-show via `install_dismissed_at` timestamp.
+- App renamed from "Splitr" to "Owezy" in manifest + vite.config. Maskable icons added (44% font size for safe-zone compliance).
+- `OfflineBanner`: sticky top, gray-800 background, shown when `navigator.onLine === false`. Mounted once in `App.jsx` above `<Routes>`.
+- `InstallBanner`: shown in `Home.jsx` between header and summary pills. Android: "Install"/"Not now" buttons. iOS: Share + Add to Home Screen instructions.

@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import OfflineBanner from './components/OfflineBanner.jsx'
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute.jsx'
 import { OnboardingCompletedGate, OnboardingInProgressGate } from './components/ProfileGate.jsx'
 import SignIn from './pages/SignIn.jsx'
@@ -27,6 +28,8 @@ import Notifications from './pages/Notifications.jsx'
 
 export default function App() {
   return (
+    <>
+    <OfflineBanner />
     <Routes>
       <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
@@ -64,5 +67,6 @@ export default function App() {
         </Route>
       </Route>
     </Routes>
+    </>
   )
 }
