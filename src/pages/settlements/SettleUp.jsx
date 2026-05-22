@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase.js'
@@ -51,6 +51,7 @@ export default function SettleUp() {
   }, [balance])
 
   const initiateAndPay = useInitiateAndPay()
+  const submittedRef = useRef(false)
 
   if (balanceLoading || friendQuery.isLoading) return (
     <div className="min-h-screen bg-white">
@@ -83,14 +84,20 @@ export default function SettleUp() {
   }
 
   async function handleMarkPaid() {
-    if (!isValidAmount) return
-    await initiateAndPay.mutateAsync({
-      payeeId: friendId,
-      amount: parsedAmount,
-      note: note || null,
-      tripId,
-    })
-    navigate(-1)
+    if (!isValidAmount || submittedRef.current) return
+    submittedRef.current = true
+    try {
+      await initiateAndPay.mutateAsync({
+        payeeId: friendId,
+        amount: parsedAmount,
+        note: note || null,
+        tripId,
+      })
+      navigate(`/friends/${friendId}`)
+    } catch {
+      submittedRef.current = false
+      // toast handled by hook
+    }
   }
 
   return (

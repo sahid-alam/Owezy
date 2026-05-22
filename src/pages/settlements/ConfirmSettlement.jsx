@@ -84,13 +84,21 @@ export default function ConfirmSettlement() {
   const credit = remaining > 0 ? remaining : 0
 
   async function handleConfirm() {
-    await confirm.mutateAsync(settlementId)
-    navigate(`/friends/${payerId}`)
+    try {
+      await confirm.mutateAsync(settlementId)
+      navigate(`/friends/${payerId}`)
+    } catch {
+      // toast handled by hook
+    }
   }
 
   async function handleDispute() {
-    await dispute.mutateAsync(settlementId)
-    navigate(-1)
+    try {
+      await dispute.mutateAsync(settlementId)
+      navigate(`/friends/${payerId}`)
+    } catch {
+      // toast handled by hook
+    }
   }
 
   return (

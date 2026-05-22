@@ -72,12 +72,14 @@ export function useInitiateAndPay() {
 
 export function useConfirmSettlement(payerId) {
   const invalidate = useInvalidateBalances()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: confirmSettlementFn,
-    onSuccess: () => {
+    onSuccess: (_, settlementId) => {
       toast.success("Payment confirmed")
       invalidate(payerId)
+      queryClient.invalidateQueries({ queryKey: ['settlement', settlementId] })
     },
     onError: () => toast.error("Couldn't confirm — try again"),
   })
@@ -85,12 +87,14 @@ export function useConfirmSettlement(payerId) {
 
 export function useDisputeSettlement(payerId) {
   const invalidate = useInvalidateBalances()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: disputeSettlementFn,
-    onSuccess: () => {
+    onSuccess: (_, settlementId) => {
       toast.success("Disputed — ask them to try again")
       invalidate(payerId)
+      queryClient.invalidateQueries({ queryKey: ['settlement', settlementId] })
     },
     onError: () => toast.error("Couldn't dispute — try again"),
   })

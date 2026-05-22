@@ -14,22 +14,24 @@ import { isSpeechSupported, startTranscription } from '../lib-web/speech.js'
 export default function MicButton({ onTranscript, disabled = false, className = '' }) {
   const [recording,   setRecording]   = useState(false)
   const [preview,     setPreview]     = useState('')
-  const stopRef = useRef(null)
+  const stopRef       = useRef(null)
+  const fullTextRef   = useRef('')        // full transcript, not truncated
   const supported = isSpeechSupported()
 
   function handleToggle() {
     if (!recording) {
       setPreview('')
+      fullTextRef.current = ''
       const { stop } = startTranscription({
-        onResult: (text) => setPreview(text.slice(-60)),
-        onError:  ()     => { setRecording(false); setPreview('') },
+        onResult: (text) => { fullTextRef.current = text; setPreview(text.slice(-60)) },
+        onError:  ()     => { setRecording(false); setPreview(''); fullTextRef.current = '' },
         onEnd:    ()     => { setRecording(false) },
       })
       stopRef.current = stop
       setRecording(true)
     } else {
       stopRef.current?.()
-      onTranscript(preview)
+      onTranscript(fullTextRef.current)  // send full transcript, not display slice
       setRecording(false)
     }
   }
