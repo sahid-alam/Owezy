@@ -8,7 +8,7 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 
 **UPI-native friend debt tracker.** Splitwise reimagined for India: UPI deep links, WhatsApp reminders, Claude-powered bill splitting from receipt photos + natural-language description.
 
-**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8) complete. Next: AI receipt scan + voice splits (Pass 9).
+**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9) complete. Next: AI receipt scan + voice splits (Pass 10).
 
 **Settlement FIFO rule (locked):** Confirmed settlements reduce the debtor's oldest expense obligations first. Overpayment flips balance direction — no artificial clamping.
 
@@ -360,4 +360,4 @@ Any table that uses an AFTER trigger to bootstrap membership (groups, trips) can
 - `TripExpensesByDay` date generation uses `getFullYear/getMonth/getDate` (local time), not `toISOString()` (UTC) — avoids off-by-one day shift in UTC+5:30.
 - Recap card blob URL created in `useEffect` (not `useMemo`) so React StrictMode double-invoke doesn't revoke the URL before the image loads.
 
-*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8) complete. Next: AI receipt scan + voice splits (Pass 9).*
+*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9) complete. Next: AI receipt scan + voice splits (Pass 10).*

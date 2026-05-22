@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getMyProfile, updateMyProfile, uploadAvatar as libUploadAvatar } from '../lib/profile.js'
+import { getMyProfile, updateMyProfile, uploadAvatar as libUploadAvatar, removeAvatar as libRemoveAvatar } from '../lib/profile.js'
 import { compressImage } from '../lib-web/compress-image.js'
 import { useAuth } from './useAuth.js'
 
@@ -26,5 +26,10 @@ export function useProfile() {
     return url
   }
 
-  return { profile: profile ?? null, isLoading, updateProfile, uploadAvatar }
+  async function removeAvatar() {
+    await libRemoveAvatar(user.id)
+    await queryClient.invalidateQueries({ queryKey: ['profile', user?.id] })
+  }
+
+  return { profile: profile ?? null, isLoading, updateProfile, uploadAvatar, removeAvatar }
 }

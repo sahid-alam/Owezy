@@ -45,6 +45,15 @@ export async function uploadAvatar(blob, userId) {
 }
 
 /**
+ * Clears the avatar — sets avatar_url to null.
+ * Orphaned storage blobs are not deleted here; cleanup is Phase 2.
+ * @param {string} userId
+ */
+export async function removeAvatar(userId) {
+  return updateMyProfile(userId, { avatar_url: null })
+}
+
+/**
  * Check if a guest_profiles row exists for this phone before claiming.
  * Called before claim_guest_profile() since the RPC returns void.
  * @param {string} phone
