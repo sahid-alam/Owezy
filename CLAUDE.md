@@ -43,28 +43,54 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 
 ---
 
-## Repo Layout (target)
+## Repo Layout (actual — as built)
 
 ```
 /
 ├── src/
-│   ├── components/        # React-only UI primitives (web)
-│   ├── features/          # auth, friends, groups, trips, expenses, settlements, ai
-│   ├── hooks/             # React hooks (web)
+│   ├── components/        # Shared UI primitives — flat, no sub-folders
+│   │   # AddExpenseSheet, AddFriendSheet, AiUsageBadge, AuditLogModal, Avatar,
+│   │   # BottomNav, ConfirmDialog, ExpenseList, ExpenseListItem, FriendBalanceItem,
+│   │   # FriendListItem, GroupListItem, InlineEditField, InstallBanner,
+│   │   # ItemAssignChips, MemberListItem, MicButton, NotificationBell, OfflineBanner,
+│   │   # OnboardingShell, PaidByPicker, ParticipantPicker, PendingConfirmationsList,
+│   │   # PrefToggleGroup, ProfileGate, ProtectedRoute, RemindSheet, RequestListItem,
+│   │   # SourceBreakdownItem, SplitEditor, Toggle, TripExpensesByDay, TripListItem
+│   ├── features/          # placeholder only — features live in pages/ + components/ for now
+│   ├── hooks/             # React hooks (13 total)
+│   │   # useAiUsage, useAuth, useBalances, useExpenses, useFriends, useGroups,
+│   │   # useInstallPrompt, useNotificationPrefs, useNotifications, useOnlineStatus,
+│   │   # useProfile, useSettlements, useTrips
 │   ├── pages/
+│   │   ├── Home.jsx, SignIn.jsx, AuthCallback.jsx, Profile.jsx, Notifications.jsx
+│   │   ├── expenses/      # AddExpense, AiReceiptScan, EditExpense, ExpenseDetail
+│   │   ├── friends/       # index, FriendDetail
+│   │   ├── groups/        # index, CreateGroup, GroupDetail, EditGroup, AddGroupMember
+│   │   ├── onboarding/    # index, Name, Phone, Photo, Upi
+│   │   ├── settlements/   # SettleUp, ConfirmSettlement
+│   │   └── trips/         # index, CreateTrip, TripDetail, EditTrip, TripRecap
+│   ├── store/             # Zustand stores (onboarding.js)
 │   ├── lib/               # FRAMEWORK-AGNOSTIC — see rules below
-│   ├── lib-web/           # browser-only helpers (canvas, URL, DOM) — not components, not lib/. Becomes lib-native/ in RN migration
+│   │   # ai-client, auth, avatar, balance, expenses, friends, groups, money,
+│   │   # notification-copy, notification-prefs, notifications, phone-format, phone,
+│   │   # profile, recap-card, reminders, schemas/, settlements, split-math,
+│   │   # supabase, trip-tag, trips, upi, whatsapp
+│   ├── lib-web/           # browser-only helpers — becomes lib-native/ in RN migration
+│   │   # compress-image, install-prompt, offline, receipts, speech, svg-to-png
 │   ├── App.jsx
 │   └── main.jsx
 ├── supabase/
-│   ├── migrations/        # SQL migrations
-│   └── functions/         # edge functions (deno)
-├── public/                # manifest.json, icons, service-worker
+│   ├── migrations/        # 28 SQL migrations (final — do not add unless Phase 2 begins)
+│   └── functions/         # 5 Deno edge functions: ai-ocr, ai-split, ai-quick-add,
+│   │                      #   cleanup-receipts, daily-reminders
+├── public/
+│   ├── manifest.json      # Owezy PWA manifest
+│   └── icons/             # icon-192.png, icon-512.png, icon-192-maskable.png, icon-512-maskable.png
 ├── .env.local             # never commit
 └── CLAUDE.md
 ```
 
-Keep features colocated. Each feature folder owns its components, hooks, and queries. No `utils/index.js` dumping ground.
+Note: `features/` is a placeholder — all feature code lives flat in `pages/` + `components/`. When Phase 2 Expo migration starts, this is the folder that becomes `packages/core/features/`.
 
 ---
 
@@ -205,10 +231,10 @@ Distinct from groups. Time-bounded, budget-aware, shareable.
 
 ## Data Model (current)
 
-12 tables applied to Supabase (project `kuwctkxsafdyhgykmgdh`). All RLS-enabled. No table has zero policies.
+13 tables applied to Supabase (project `kuwctkxsafdyhgykmgdh`). All RLS-enabled. No table has zero policies.
 
 **Tables:**
-`profiles`, `guest_profiles`, `friendships`, `groups`, `group_members`, `trips`, `trip_members`, `expenses`, `expense_splits`, `settlements`, `notifications`, `notification_prefs`
+`profiles`, `guest_profiles`, `friendships`, `groups`, `group_members`, `trips`, `trip_members`, `expenses`, `expense_splits`, `settlements`, `notifications`, `notification_prefs`, `ai_usage`
 
 **SECURITY DEFINER functions:**
 - `set_updated_at()` — utility trigger function used by all tables with updated_at
@@ -243,6 +269,23 @@ Auth, friends, groups, trips, manual expense add, AI receipt scan + voice splits
 UPI SMS auto-match (native Android wrapper), debt simplification UI polish, "freeloader" gamified insights, settlement streaks, Hindi support, premium tier (export, analytics, trip budget forecasting). Phone OTP verification + `claim_guest_profile()` wired back in (gates auto-claim on verified number). Guest Invite Reclaim UI in profile settings.
 
 If a task creeps into Phase 2, stop and confirm with user.
+
+---
+
+## Known Limitations (Phase 1 — deferred, not forgotten)
+
+These are intentional gaps, not bugs. Each has a reason it was deferred and a Phase 2 home.
+
+| Limitation | Impact | Phase 2 plan |
+|---|---|---|
+| **Phone OTP verification** | Phone numbers are unverified — `claim_guest_profile()` can't be gated on a confirmed number. Guest expense reclaim deferred. | OTP via Supabase Auth phone provider or Twilio. Unlocks auto-claim and SMS reminders. |
+| **Account deletion** | No self-serve delete UI. Deletion logic is specced (30-day window, anonymize-not-delete) but not wired. | Profile settings entry + Supabase Edge Function with a scheduled job. |
+| **Offline write queue** | Mutations while offline fail with a toast. Writes do not queue/retry on reconnect. | Workbox `BackgroundSync` + IndexedDB queue. Meaningful complexity; deferred until user-reported need. |
+| **Split type edit history** | When an expense is edited and `split_type` changes (e.g. `equal` → `item`), audit log records the field change but the old split row values are not snapshotted. | Snapshot old `expense_splits` rows in `expense_audit_log.data` before replacement. One migration. |
+| **Per-app UPI deep link variants** | `upi://` scheme is universal but GPay/PhonePe/Paytm each have proprietary intent URLs on Android that launch the specific app without the chooser dialog. Only the universal scheme is implemented. | `src/lib/upi.js` already has per-app variant stubs. Wire to user's preferred-app profile setting. |
+| **Unarchive groups** | Groups go active → archived only. No path back to active once archived (even if balances were wrong). | Add `unarchive_group` RPC (SECURITY DEFINER, admin-only). One migration + one button in EditGroup. |
+| **Orphan guest reclaim UI** | `claim_guest_profile()` RPC exists and is correct, but the "were you added before signing up?" UI is not wired. Guest expense splits show ₹0 in their balance view. | Profile settings entry or post-onboarding prompt. Gated on phone OTP above. |
+| **Expense edit — payer change** | Editing an expense allows changing title/amount/date/category but changing `paid_by` is not surfaced in the UI. The RPC supports it. | Add paid-by picker to EditExpense. Straightforward UI change, no migration. |
 
 ---
 
