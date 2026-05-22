@@ -7,7 +7,7 @@ const SPLIT_SELECT = `
 
 const EXPENSE_SELECT = `
   id, title, amount, paid_by, group_id, trip_id, category,
-  date, notes, split_type, ai_parsed, created_by, deleted_at, created_at, updated_at,
+  date, notes, split_type, ai_parsed, receipt_path, created_by, deleted_at, created_at, updated_at,
   payer:profiles!paid_by(id, name, avatar_url),
   creator:profiles!created_by(id, name, avatar_url),
   splits:expense_splits(${SPLIT_SELECT})
@@ -68,18 +68,21 @@ export async function getExpenseAuditLog(expenseId) {
 export async function createExpense({
   title, amount, paidBy, groupId, tripId,
   category, date, notes, splitType, splits,
+  aiParsed = false, receiptPath = null,
 }) {
   const { data, error } = await supabase.rpc('create_expense', {
-    p_title:      title.trim(),
-    p_amount:     Number(amount),
-    p_paid_by:    paidBy,
-    p_group_id:   groupId || null,
-    p_trip_id:    tripId || null,
-    p_category:   category || null,
-    p_date:       date,
-    p_notes:      notes || null,
-    p_split_type: splitType,
-    p_splits:     splits,
+    p_title:        title.trim(),
+    p_amount:       Number(amount),
+    p_paid_by:      paidBy,
+    p_group_id:     groupId || null,
+    p_trip_id:      tripId || null,
+    p_category:     category || null,
+    p_date:         date,
+    p_notes:        notes || null,
+    p_split_type:   splitType,
+    p_splits:       splits,
+    p_ai_parsed:    aiParsed,
+    p_receipt_path: receiptPath || null,
   })
   if (error) throw error
   return data  // uuid of new expense

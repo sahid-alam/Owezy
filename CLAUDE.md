@@ -8,7 +8,7 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 
 **UPI-native friend debt tracker.** Splitwise reimagined for India: UPI deep links, WhatsApp reminders, Claude-powered bill splitting from receipt photos + natural-language description.
 
-**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9) complete. Next: AI receipt scan + voice splits (Pass 10).
+**Status:** Auth (Pass 1), onboarding wizard (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses — manual add/edit/delete (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9), AI receipt scan + voice splits (Pass 10) complete.
 
 **Settlement FIFO rule (locked):** Confirmed settlements reduce the debtor's oldest expense obligations first. Overpayment flips balance direction — no artificial clamping.
 
@@ -23,7 +23,7 @@ Single source of truth for Claude Code on this project. Read top-to-bottom befor
 | Frontend | React + Vite + Tailwind CSS (PWA: manifest + service worker) |
 | Backend | Supabase — Postgres, Auth, Realtime, Edge Functions (Deno), Storage |
 | Hosting | Vercel (frontend) + Supabase (backend) |
-| AI | Anthropic Claude API — receipt OCR (vision), voice/text split parsing |
+| AI | Mistral API — pixtral-12b-2409 (receipt OCR vision), mistral-small-latest (split + quick-add parsing). All calls server-side via Supabase Edge Functions. To swap provider: update `supabase/functions/ai-*/index.ts` — `src/lib/ai-client.js` is provider-agnostic and never changes. |
 | Notifications | PWA push (web-push) + WhatsApp `wa.me` deep links |
 | Scheduler | cron-job.org → Supabase Edge Function (also keeps free-tier project alive) |
 
@@ -252,6 +252,8 @@ If a task creeps into Phase 2, stop and confirm with user.
 - Supabase limits to respect: 500MB DB, 1GB storage, 2GB bandwidth, 500K Edge Function calls/month, 50K MAU
 - Receipt photos: compress client-side before upload (max 1MB, JPEG quality 0.7)
 - Edge Function reminder cron runs once daily, batches all due reminders in one pass
+- **AI rate limit:** 20 requests/day soft cap per user tracked in `ai_usage` table. Enforced server-side in each Edge Function (never trusted from client). Client shows badge as UX hint only. Warning toast at 16+, hard block at 20
+- **Receipt auto-delete:** `cleanup-receipts` Edge Function deletes storage objects older than 30 days. Wire to cron-job.org (daily, same service-role Bearer auth pattern as daily-reminders). "Receipt no longer available" placeholder shown in `ReceiptModal` when signed URL returns null
 
 ---
 
@@ -260,7 +262,7 @@ If a task creeps into Phase 2, stop and confirm with user.
 - **TypeScript optional, JSX fine.** Match user's preference when they specify. Default: JSX with JSDoc on shared lib functions
 - **Tailwind utility-first.** No CSS modules, no styled-components. Use `clsx` for conditionals
 - **Supabase client:** single instance in `src/lib/supabase.js`. Never import `createClient` elsewhere
-- **Claude calls:** route through a Supabase Edge Function (`/functions/ai-split`, `/functions/ai-ocr`). Never call Anthropic from the browser — API key must stay server-side
+- **AI calls:** always route through a Supabase Edge Function (`/functions/ai-ocr`, `/functions/ai-split`, `/functions/ai-quick-add`). Never call the AI provider from the browser — API key stays in Supabase secrets only. `src/lib/ai-client.js` is the sole entry point; feature code never touches provider URLs
 - **State:** React Query for server state, Zustand for local UI state. No Redux
 - **Forms:** React Hook Form + Zod schemas
 - **Money math:** integer paise internally where possible, format on display. Never `0.1 + 0.2`
@@ -345,6 +347,9 @@ Migrations applied (Supabase project `kuwctkxsafdyhgykmgdh`):
 | `20260519000022_trip_notifications.sql` | `notify_on_trip_member_change` trigger — reuses `group_added/removed/admin_granted/revoked` types with `data.context='trip'` to avoid new notification_prefs columns. |
 | `20260519000023_fix_trip_insights_settle_secs.sql` | Fixes cartesian join bug in `get_trip_personal_insights`: `avg_settle_secs` now measures settlement initiation→confirmation time (`s.confirmed_at - s.created_at`), not a cross-join with expenses. |
 | `20260519000024_fix_trip_balances_plpgsql_shadowing.sql` | Fixes PL/pgSQL variable shadowing: `RETURNS TABLE(user_a, user_b)` OUT params shadowed same-named CTE aliases. CTEs renamed to `ua`/`ub` internally, cast to `user_a`/`user_b` in final SELECT. |
+| `20260519000025_ai_usage.sql` | `ai_usage` table (profile_id, request_type, created_at) with SELECT+INSERT RLS; `get_my_ai_usage_count(p_hours)` SECURITY DEFINER RPC — called from Edge Functions to enforce 20/day rate limit |
+| `20260519000026_receipts_bucket.sql` | Private `receipts` storage bucket (5MB limit, jpeg/png/webp); 4 RLS policies: owner-only SELECT/INSERT/UPDATE/DELETE using `storage.foldername(name)[1] = auth.uid()::text` |
+| `20260519000027_expenses_ai_columns.sql` | Adds `receipt_path text` column to expenses; extends `create_expense` RPC with trailing DEFAULT params `p_ai_parsed boolean DEFAULT false` and `p_receipt_path text DEFAULT NULL` — non-breaking for existing callers |
 
 **Known pattern — INSERT + AFTER trigger + RETURNING + RLS:**
 Any table that uses an AFTER trigger to bootstrap membership (groups, trips) cannot use `INSERT … RETURNING` from the client, because the SELECT policy evaluates before the trigger fires. Solution: always route these INSERTs through a SECURITY DEFINER RPC that bypasses RLS, returns just the UUID.
@@ -360,4 +365,14 @@ Any table that uses an AFTER trigger to bootstrap membership (groups, trips) can
 - `TripExpensesByDay` date generation uses `getFullYear/getMonth/getDate` (local time), not `toISOString()` (UTC) — avoids off-by-one day shift in UTC+5:30.
 - Recap card blob URL created in `useEffect` (not `useMemo`) so React StrictMode double-invoke doesn't revoke the URL before the image loads.
 
-*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9) complete. Next: AI receipt scan + voice splits (Pass 10).*
+**AI Receipt Scan decisions (locked):**
+- AI provider: Mistral API. pixtral-12b-2409 for OCR (vision), mistral-small-latest for split + quick-add. Provider swap requires only editing the Edge Function files — frontend is unaffected.
+- Receipt storage: draft path (e.g. `{userId}/draft-{ts}.jpg`) stored permanently on the expense row. No post-save move/rename — Supabase Storage has no native rename and copy+delete adds complexity for no user benefit.
+- Receipt display: camera icon on expense list rows. Tap opens `ReceiptModal` in-app (signed URL, 3600s). "Receipt no longer available" shown when storage object deleted (after 30-day retention).
+- Rate limit: 20 req/day enforced server-side. Client reads `get_my_ai_usage_count` RPC for UX badge only — never trusted for enforcement.
+- Voice quick-add on AddExpense: `MicButton` returns null on Firefox (Web Speech API unsupported). On record stop, full transcript sent to `ai-quick-add`; result auto-fills title, amount, paid_by, participants. Confidence='low' → warning toast, form editable.
+- Stage machine: single `AiReceiptScan.jsx` file, 6 stages: scan → review-items → describe → processing → review-split → confirm. Back button returns to prior stage. Unattributed items block confirm until all assigned.
+- `buildMergedDescription`: merges tap-assign chips into text description (e.g. "Yasir and Ayan had the Patiala Chicken") before AI split call — single unified input to model.
+- Retry type in `ai_usage`: OCR retries logged as `'retry'` not `'ocr'` to distinguish from first-attempt usage in rate-limit monitoring.
+
+*Last updated: auth (Pass 1), onboarding (Pass 2), friends graph (Pass 3), groups (Pass 4), expenses manual mode (Pass 5), balance view + settlements (Pass 6), notifications + reminders (Pass 7), Trip Mode (Pass 8), Profile Settings (Pass 9), AI receipt scan + voice splits (Pass 10) complete.*

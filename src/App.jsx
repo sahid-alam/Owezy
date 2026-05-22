@@ -17,6 +17,7 @@ import TripDetail from './pages/trips/TripDetail.jsx'
 import EditTrip from './pages/trips/EditTrip.jsx'
 import TripRecap from './pages/trips/TripRecap.jsx'
 import AddExpense from './pages/expenses/AddExpense.jsx'
+import AiReceiptScan from './pages/expenses/AiReceiptScan.jsx'
 import ExpenseDetail from './pages/expenses/ExpenseDetail.jsx'
 import EditExpense from './pages/expenses/EditExpense.jsx'
 import SettleUp from './pages/settlements/SettleUp.jsx'
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/groups/:groupId" element={<GroupDetail />} />
           <Route path="/groups/:groupId/edit" element={<EditGroup />} />
           <Route path="/expenses/new" element={<AddExpense />} />
+          <Route path="/expenses/scan" element={<AiReceiptScan />} />
           <Route path="/expenses/:expenseId" element={<ExpenseDetail />} />
           <Route path="/expenses/:expenseId/edit" element={<EditExpense />} />
           <Route path="/settle/:friendId" element={<SettleUp />} />

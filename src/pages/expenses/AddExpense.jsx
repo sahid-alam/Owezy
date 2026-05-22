@@ -9,12 +9,17 @@ import { useGroupMembers } from '../../hooks/useGroups.js'
 import { useTripMembers, useTrip } from '../../hooks/useTrips.js'
 import { useFriends } from '../../hooks/useFriends.js'
 import { useCreateExpense } from '../../hooks/useExpenses.js'
+import { useAiUsageCount } from '../../hooks/useAiUsage.js'
 import { expenseFormSchema, CATEGORIES, CATEGORY_LABELS } from '../../lib/schemas/expenses.js'
 import { computeEqualSplit, validateExactSplits } from '../../lib/split-math.js'
 import { formatINR } from '../../lib/money.js'
+import { parseQuickAdd } from '../../lib/ai-client.js'
+import { isSpeechSupported } from '../../lib-web/speech.js'
 import ParticipantPicker from '../../components/ParticipantPicker.jsx'
 import PaidByPicker from '../../components/PaidByPicker.jsx'
 import SplitEditor from '../../components/SplitEditor.jsx'
+import MicButton from '../../components/MicButton.jsx'
+import AiUsageBadge from '../../components/AiUsageBadge.jsx'
 
 function Section({ title, children }) {
   return (
@@ -65,7 +70,24 @@ export default function AddExpense() {
   const [selectedIds, setSelectedIds] = useState(() => new Set([userId]))
   const [paidBy, setPaidBy] = useState(userId)
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm({
+  const { count: aiUsageCount, isAtLimit } = useAiUsageCount()
+
+  const quickAddContext = useMemo(() => ({
+    selfId:   userId,
+    selfName: user?.user_metadata?.name || 'Me',
+    friends:  candidates.filter(c => c.id !== userId),
+  }), [userId, user, candidates])
+
+  function handleScanReceipt() {
+    if (isAtLimit) { toast.error("You've reached your 20 AI requests for today"); return }
+    const p = new URLSearchParams()
+    if (groupId)  p.set('groupId',  groupId)
+    if (tripId)   p.set('tripId',   tripId)
+    if (friendId) p.set('friendId', friendId)
+    navigate(`/expenses/scan${p.toString() ? '?' + p.toString() : ''}`)
+  }
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
       title: '',
@@ -97,6 +119,28 @@ export default function AddExpense() {
   function handleSplitTypeChange(e) {
     if (e.target.value === 'custom' && customSplits.length === 0) {
       setCustomSplits(equalSplits)
+    }
+  }
+
+  async function handleVoiceTranscript(text) {
+    if (isAtLimit) { toast.error("You've reached your 20 AI requests for today"); return }
+    try {
+      const result = await parseQuickAdd({ transcript: text, context: quickAddContext })
+      if (result.title)  setValue('title',  result.title)
+      if (result.amount) setValue('amount', String(result.amount))
+      if (result.paid_by_id) setPaidBy(result.paid_by_id)
+      if (result.participant_ids?.length) {
+        const valid = result.participant_ids.filter(id => candidates.some(c => c.id === id))
+        if (valid.length) setSelectedIds(new Set([userId, ...valid]))
+      }
+      if (result.confidence === 'low') {
+        toast("Couldn't catch everything — please review", { icon: '⚠️' })
+      }
+      if (result._usage?.warn) {
+        toast(`AI usage: ${result._usage.count}/20 today`, { icon: '⚠️' })
+      }
+    } catch {
+      toast.error("Voice recognition failed — please try again")
     }
   }
 
@@ -166,6 +210,24 @@ export default function AddExpense() {
         </button>
       </div>
 
+      {/* Scan receipt shortcut */}
+      <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={handleScanReceipt}
+          disabled={isAtLimit}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-sm font-medium disabled:opacity-40"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Scan receipt
+        </button>
+        <AiUsageBadge count={aiUsageCount} />
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -175,11 +237,16 @@ export default function AddExpense() {
           {/* Title + Amount */}
           <div className="px-4 pt-4 space-y-4">
             <div>
-              <input
-                {...register('title')}
-                placeholder="What was this for?"
-                className="w-full text-lg font-medium placeholder-gray-300 outline-none border-b border-gray-200 pb-2 focus:border-indigo-500"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  {...register('title')}
+                  placeholder="What was this for?"
+                  className="flex-1 text-lg font-medium placeholder-gray-300 outline-none border-b border-gray-200 pb-2 focus:border-indigo-500"
+                />
+                {isSpeechSupported() && (
+                  <MicButton onTranscript={handleVoiceTranscript} disabled={isAtLimit} />
+                )}
+              </div>
               {errors.title && (
                 <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
               )}
