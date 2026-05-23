@@ -6,11 +6,12 @@ const supabase = createClient(
 )
 
 Deno.serve(async (req) => {
-  // Caller must present the service-role key as Bearer token.
-  // Set this in cron-job.org's request header: Authorization: Bearer <service_role_key>
+  // Caller must present the CRON_SECRET as Bearer token.
+  // Set CRON_SECRET in Supabase Dashboard → Edge Functions → Secrets.
+  // Set this in cron-job.org's request header: Authorization: Bearer <CRON_SECRET>
+  const cronSecret = Deno.env.get('CRON_SECRET') ?? ''
   const authHeader = req.headers.get('Authorization') ?? ''
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  if (authHeader !== `Bearer ${serviceKey}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return new Response('Unauthorized', { status: 401 })
   }
 

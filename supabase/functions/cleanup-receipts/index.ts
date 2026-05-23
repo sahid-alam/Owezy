@@ -15,8 +15,9 @@ const RETENTION_DAYS    = parseInt(Deno.env.get('RECEIPT_RETENTION_DAYS') ?? '30
 const BATCH_SIZE        = 100
 
 Deno.serve(async (req) => {
+  const cronSecret = Deno.env.get('CRON_SECRET') ?? ''
   const authHeader = req.headers.get('Authorization') ?? ''
-  if (authHeader !== `Bearer ${SERVICE_ROLE_KEY}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return new Response('Unauthorized', { status: 401 })
   }
 
