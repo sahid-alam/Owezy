@@ -22,3 +22,4 @@ Thumbs.db
 # Claude Code — machine-specific configs, not project code
 .mcp.json
 .claude/
+.vercel
